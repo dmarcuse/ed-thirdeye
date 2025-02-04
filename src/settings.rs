@@ -1,6 +1,6 @@
-//! Locate, parse, and monitor Elite: Dangerous journal files
-
 use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
 
 /// Get the default Elite: Dangerous journal file path for the current system.
 ///
@@ -28,5 +28,24 @@ pub fn get_default_journal_path() -> Option<PathBuf> {
         })
     } else {
         None
+    }
+}
+
+/// Persistent user settings for Third Eye
+///
+/// These settings should be backwards compatible, such that settings saved by
+/// older versions of the program can be loaded in newer versions to avoid
+/// annoying the user by resetting their configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Settings {
+    /// The path to Elite: Dangerous journal files
+    pub journal_path: Option<PathBuf>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            journal_path: get_default_journal_path(),
+        }
     }
 }

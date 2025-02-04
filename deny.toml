@@ -1,0 +1,5 @@
+# configuration for cargo-deny
+
+# allow licenses compatible with the MIT license
+[licenses]
+allow = ["MIT", "Apache-2.0", "ISC", "CC0-1.0", "Unicode-3.0", "MPL-2.0"]
