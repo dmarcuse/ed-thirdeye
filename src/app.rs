@@ -4,11 +4,12 @@ use eframe::{
     egui::{self, Ui, ViewportBuilder},
     NativeOptions,
 };
-use egui_tiles::{Tree, UiResponse};
+use egui_tiles::{Container, SimplificationOptions, Tile, TileId, Tiles, Tree, UiResponse};
+use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    panes::{PaneContext, TEPane},
+    panes::{self, PaneContext, TEPane},
     settings::Settings,
 };
 
@@ -38,23 +39,31 @@ impl App {
             .all_styles_mut(|style| style.interaction.selectable_labels = false);
 
         let state;
-        let layout: Tree<Box<dyn TEPane>>;
+        let layout;
 
         if let Some(storage) = cc.storage {
             state = eframe::get_value(storage, Self::STATE_KEY).unwrap_or_default();
             layout = eframe::get_value(storage, Self::LAYOUT_KEY).unwrap_or_else(|| {
                 Tree::new_tabs(
                     Self::LAYOUT_KEY,
-                    vec![Box::new(crate::panes::Welcome {}) as Box<dyn TEPane>],
+                    vec![Box::new(panes::Welcome::default()) as Box<dyn TEPane>],
                 )
             });
         } else {
             state = PersistentState::default();
-            layout = Tree::new_tabs(Self::LAYOUT_KEY, vec![Box::new(crate::panes::NoStorage {})]);
+            layout = Tree::new_tabs(
+                Self::LAYOUT_KEY,
+                vec![Box::new(panes::NoStorage::default())],
+            );
         }
 
         App { state, layout }
     }
+}
+
+struct AppBehavior<'a> {
+    persistent: &'a mut PersistentState,
+    add_pane: Option<(TileId, Box<dyn TEPane>)>,
 }
 
 impl eframe::App for App {
@@ -64,9 +73,33 @@ impl eframe::App for App {
     }
 
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        if self.layout.is_empty() {
+            info!("layout contains no tiles - adding one...");
+            let id = self
+                .layout
+                .tiles
+                .insert_pane(Box::new(crate::panes::Welcome {}));
+            self.layout.root = Some(id);
+        }
+
+        let mut behavior = AppBehavior {
+            persistent: &mut self.state,
+            add_pane: None,
+        };
+
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.layout.ui(&mut self.state, ui);
+            self.layout.ui(&mut behavior, ui);
         });
+
+        if let Some((parent, pane)) = behavior.add_pane.take() {
+            let child = self.layout.tiles.insert_pane(pane);
+            if let Some(Tile::Container(parent)) = self.layout.tiles.get_mut(parent) {
+                parent.add_child(child);
+                if let Container::Tabs(tabs) = parent {
+                    tabs.set_active(child);
+                }
+            }
+        }
     }
 }
 
@@ -84,22 +117,41 @@ pub fn start(data_dir: PathBuf) -> eframe::Result {
     )
 }
 
-impl egui_tiles::Behavior<Box<dyn TEPane>> for PersistentState {
+impl<'a> egui_tiles::Behavior<Box<dyn TEPane>> for AppBehavior<'a> {
+    fn simplification_options(&self) -> egui_tiles::SimplificationOptions {
+        SimplificationOptions {
+            all_panes_must_have_tabs: true,
+            ..Default::default()
+        }
+    }
+
     fn tab_title_for_pane(&mut self, pane: &Box<dyn TEPane>) -> egui::WidgetText {
-        // TODO: allow the user to rename tabs
+        // TODO: allow the user to rename tabs, e.g. by right clicking them
         pane.default_tab_name().into()
     }
 
-    fn pane_ui(
-        &mut self,
-        ui: &mut Ui,
-        _tile_id: egui_tiles::TileId,
-        pane: &mut Box<dyn TEPane>,
-    ) -> UiResponse {
+    fn is_tab_closable(&self, _tiles: &Tiles<Box<dyn TEPane>>, _tile_id: TileId) -> bool {
+        true
+    }
+
+    fn pane_ui(&mut self, ui: &mut Ui, _tile_id: TileId, pane: &mut Box<dyn TEPane>) -> UiResponse {
         let context = PaneContext {
-            settings: &mut self.settings,
+            settings: &mut self.persistent.settings,
         };
         pane.render(context, ui);
         UiResponse::None
+    }
+
+    fn top_bar_right_ui(
+        &mut self,
+        _tiles: &Tiles<Box<dyn TEPane>>,
+        ui: &mut Ui,
+        tile_id: TileId,
+        _tabs: &egui_tiles::Tabs,
+        _scroll_offset: &mut f32,
+    ) {
+        ui.menu_button("+", |ui| {
+            self.add_pane = crate::panes::new_pane_menu_ui(ui).map(|pane| (tile_id, pane));
+        });
     }
 }

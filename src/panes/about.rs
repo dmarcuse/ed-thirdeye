@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{PaneContext, TEPane};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct About {}
 
 #[typetag::serde]
