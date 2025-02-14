@@ -5,7 +5,6 @@ use log::info;
 
 mod app;
 mod panes;
-mod settings;
 
 /// Get the default data directory, for when none is specified
 fn get_default_data_dir() -> PathBuf {
@@ -22,7 +21,7 @@ fn get_default_data_dir() -> PathBuf {
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Args {
-    /// Log message filter string - see https://docs.rs/env_logger for syntax
+    /// Log message filter string - see <https://docs.rs/env_logger> for syntax
     #[arg(long = "log", env = "RUST_LOG")]
     #[cfg_attr(debug_assertions, arg(default_value = "debug"))]
     #[cfg_attr(not(debug_assertions), arg(default_value = concat!(env!("CARGO_PKG_NAME"), "=info,warn")))]

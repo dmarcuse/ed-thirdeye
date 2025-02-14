@@ -941,7 +941,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "878e9005799dd739e5d5d89ff7480491c12d0af571d44399bcaefa1ee172dd76"
 dependencies = [
  "bytemuck",
- "emath",
+ "emath 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "ecolor"
+version = "0.31.0"
+source = "git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0#adde2b0eeef133d5547fd9340f05f0b825f05c5f"
+dependencies = [
+ "bytemuck",
+ "emath 0.31.0 (git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0)",
  "serde",
 ]
 
@@ -987,14 +996,13 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d2768eaa6d5c80a6e2a008da1f0e062dff3c83eb2b28605ea2d0732d46e74d6"
+source = "git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0#adde2b0eeef133d5547fd9340f05f0b825f05c5f"
 dependencies = [
  "accesskit",
  "ahash",
  "bitflags 2.8.0",
- "emath",
- "epaint",
+ "emath 0.31.0 (git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0)",
+ "epaint 0.31.0 (git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0)",
  "log",
  "nohash-hasher",
  "profiling",
@@ -1012,7 +1020,7 @@ dependencies = [
  "bytemuck",
  "document-features",
  "egui",
- "epaint",
+ "epaint 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
  "profiling",
  "thiserror 1.0.69",
@@ -1100,6 +1108,14 @@ name = "emath"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55b7b6be5ad1d247f11738b0e4699d9c20005ed366f2c29f5ec1f8e1de180bc2"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
+name = "emath"
+version = "0.31.0"
+source = "git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0#adde2b0eeef133d5547fd9340f05f0b825f05c5f"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1196,8 +1212,23 @@ dependencies = [
  "ab_glyph",
  "ahash",
  "bytemuck",
- "ecolor",
- "emath",
+ "ecolor 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "emath 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nohash-hasher",
+ "parking_lot",
+ "profiling",
+]
+
+[[package]]
+name = "epaint"
+version = "0.31.0"
+source = "git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0#adde2b0eeef133d5547fd9340f05f0b825f05c5f"
+dependencies = [
+ "ab_glyph",
+ "ahash",
+ "bytemuck",
+ "ecolor 0.31.0 (git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0)",
+ "emath 0.31.0 (git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0)",
  "epaint_default_fonts",
  "log",
  "nohash-hasher",
@@ -1209,8 +1240,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9343d356d7cac894dacafc161b4654e0881301097bdf32a122ed503d97cb94b6"
+source = "git+https://github.com/IaVashik/egui-textedit-fix.git?rev=adde2b0#adde2b0eeef133d5547fd9340f05f0b825f05c5f"
 
 [[package]]
 name = "equivalent"
