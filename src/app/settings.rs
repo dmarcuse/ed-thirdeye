@@ -14,35 +14,9 @@ pub enum JournalPath {
 
 impl Default for JournalPath {
     fn default() -> Self {
-        let suffix = PathBuf::new()
-            .join("Saved Games")
-            .join("Frontier Developments")
-            .join("Elite Dangerous");
-
-        if cfg!(target_os = "windows") {
-            dirs::home_dir()
-                .map(|p| p.join(suffix))
-                .map(Self::Path)
-                .unwrap_or(Self::Unset)
-        } else if cfg!(target_os = "linux") {
-            // assume that the game is running in Steam via Proton
-            dirs::data_dir()
-                .map(|p| {
-                    p.join("Steam")
-                        .join("steamapps")
-                        .join("compatdata")
-                        .join("359320") // Elite: Dangerous steam app ID
-                        .join("pfx")
-                        .join("drive_c")
-                        .join("users")
-                        .join("steamuser")
-                        .join(suffix)
-                })
-                .map(Self::Path)
-                .unwrap_or(Self::Unset)
-        } else {
-            Self::Unset
-        }
+        ed_journals::journal::auto_detect_journal_path()
+            .map(Self::Path)
+            .unwrap_or(Self::Unset)
     }
 }
 

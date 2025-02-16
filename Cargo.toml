@@ -9,16 +9,15 @@ repository = "https://github.com/dmarcuse/ed-thirdeye"
 [dependencies]
 chrono = { version = "0.4.39", features = ["serde"] }
 clap = { version = "4.5.28", features = ["derive", "env"] }
-dirs = "6.0.0"
+directories = "6.0.0"
+ed-journals = { version = "0.7.1", default-features = false }
 eframe = { version = "0.31.0", features = ["persistence"] }
 egui_extras = { version = "0.31.0", features = ["image"] }
 egui_tiles = "0.12.0"
 env_logger = "0.11.6"
 log = "0.4.25"
-notify = { version = "8.0.0", features = ["serde"] }
 ron = "0.8.1"
 serde = { version = "1.0.217", features = ["derive"] }
-serde_json = { version = "1.0.138", features = ["float_roundtrip"] }
 thiserror = "2.0.11"
 typetag = "0.2.19"
 
