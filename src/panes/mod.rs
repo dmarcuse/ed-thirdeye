@@ -7,7 +7,6 @@ use eframe::egui::Ui;
 use crate::app::{settings::Settings, Message};
 
 mod about;
-mod nostorage;
 mod welcome;
 
 pub use about::About;
