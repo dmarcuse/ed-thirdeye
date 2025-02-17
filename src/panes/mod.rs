@@ -29,11 +29,11 @@ pub trait TEPane: Debug {
 }
 
 /// Render the menu for adding a new tab
-pub fn new_pane_menu_ui(ui: &mut Ui) -> Option<Box<dyn TEPane>> {
-    const fn ctor<T: 'static + TEPane + Default>() -> fn() -> Box<dyn TEPane> {
+pub fn new_pane_menu_ui(ui: &mut Ui) -> Option<Box<dyn TEPane + Send>> {
+    const fn ctor<T: 'static + TEPane + Send + Default>() -> fn() -> Box<dyn TEPane + Send> {
         || Box::new(T::default())
     }
-    static USER_CREATABLE_PANES: &[(&str, fn() -> Box<dyn TEPane>)] =
+    static USER_CREATABLE_PANES: &[(&str, fn() -> Box<dyn TEPane + Send>)] =
         &[("Welcome", ctor::<Welcome>()), ("About", ctor::<About>())];
 
     for &(name, ctor) in USER_CREATABLE_PANES {

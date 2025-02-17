@@ -1,6 +1,7 @@
 use std::{
     path::PathBuf,
     sync::mpsc::{Receiver, Sender},
+    time::Duration,
 };
 
 use eframe::{
@@ -18,9 +19,10 @@ pub mod settings;
 
 #[derive(Debug)]
 pub enum Message {
+    AutoSave,
     AddPane {
         parent: TileId,
-        pane: Box<dyn TEPane>,
+        pane: Box<dyn TEPane + Send>,
     },
     CloseSettingsModal {
         new_settings: Option<Settings>,
@@ -45,7 +47,6 @@ impl App {
     /// from eframe storage if possible
     fn init(data_dir: PathBuf, cc: &eframe::CreationContext<'_>) -> Self {
         egui_extras::install_image_loaders(&cc.egui_ctx);
-
         cc.egui_ctx.all_styles_mut(|style| {
             style.interaction.selectable_labels = false;
         });
@@ -74,6 +75,18 @@ impl App {
         };
 
         let (message_tx, message_rx) = std::sync::mpsc::channel();
+
+        {
+            let ctx = cc.egui_ctx.clone();
+            let message_tx = message_tx.clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(Duration::from_secs(30));
+                match message_tx.send(Message::AutoSave) {
+                    Ok(_) => ctx.request_repaint(),
+                    Err(_) => break,
+                }
+            });
+        }
 
         let app = App {
             data_dir,
@@ -149,6 +162,7 @@ impl App {
         for message in self.message_rx.try_iter() {
             debug!("processing message: {message:#?}");
             match message {
+                Message::AutoSave => self.save_data(),
                 Message::AddPane { parent, pane } => {
                     let child = self.layout.tiles.insert_pane(pane);
                     match self.layout.tiles.get_mut(parent) {
