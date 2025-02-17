@@ -1,22 +1,22 @@
 //! Implementations of individual panes that users can add to Third Eye
 
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::mpsc::Sender};
 
 use eframe::egui::Ui;
 
-use crate::app::settings::Settings;
+use crate::app::{settings::Settings, Message};
 
 mod about;
 mod nostorage;
 mod welcome;
 
 pub use about::About;
-pub use nostorage::NoStorage;
 pub use welcome::Welcome;
 
 /// Shared application state that panes can access
 pub struct PaneContext<'a> {
     pub settings: &'a Settings,
+    pub message_tx: &'a Sender<Message>,
 }
 
 /// A type of pane that users can add to Third Eye

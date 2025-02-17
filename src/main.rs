@@ -7,6 +7,17 @@ use log::info;
 mod app;
 mod panes;
 
+fn default_data_dir() -> PathBuf {
+    let application = match cfg!(debug_assertions) {
+        false => env!("CARGO_BIN_NAME"),
+        true => concat!(env!("CARGO_BIN_NAME"), ".debug"),
+    };
+
+    ProjectDirs::from("", "", application)
+        .map(|p| p.data_local_dir().to_owned())
+        .unwrap_or_else(|| std::env::current_dir().expect("couldn't get cwd"))
+}
+
 /// Command-line arguments for the program
 #[derive(Debug, Parser)]
 #[command(version, about)]
@@ -19,27 +30,8 @@ struct Args {
 
     /// Directory under which to store application state - will be created if
     /// necessary
-    #[arg(long)]
-    data_dir: Option<PathBuf>,
-}
-
-impl Args {
-    fn data_dir_or_default(&self) -> PathBuf {
-        if let Some(p) = &self.data_dir {
-            return p.to_owned();
-        }
-
-        let application = match cfg!(debug_assertions) {
-            false => env!("CARGO_BIN_NAME"),
-            true => concat!(env!("CARGO_BIN_NAME"), ".debug"),
-        };
-
-        // TODO: inform the user about this graphically as well
-        let project_dir = ProjectDirs::from("", "", application)
-            .expect("couldn't determine data directory - please set it manually");
-
-        project_dir.data_local_dir().to_owned()
-    }
+    #[arg(long, default_value_os_t = default_data_dir())]
+    data_dir: PathBuf,
 }
 
 fn main() -> eframe::Result {
@@ -48,5 +40,5 @@ fn main() -> eframe::Result {
         .parse_filters(&args.log_filters)
         .init();
     info!("command-line arguments: {args:?}");
-    app::start(args.data_dir_or_default())
+    app::start(args.data_dir)
 }

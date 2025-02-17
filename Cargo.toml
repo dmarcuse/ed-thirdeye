@@ -7,11 +7,10 @@ license = "MIT"
 repository = "https://github.com/dmarcuse/ed-thirdeye"
 
 [dependencies]
-chrono = { version = "0.4.39", features = ["serde"] }
 clap = { version = "4.5.28", features = ["derive", "env"] }
 directories = "6.0.0"
 ed-journals = { version = "0.7.1", default-features = false }
-eframe = { version = "0.31.0", features = ["persistence"] }
+eframe = "0.31.0"
 egui_extras = { version = "0.31.0", features = ["image"] }
 egui_tiles = "0.12.0"
 env_logger = "0.11.6"

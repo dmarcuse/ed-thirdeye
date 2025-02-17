@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::mpsc::{Receiver, Sender},
+};
 
 use eframe::{
     egui::{self, Modal, Ui, ViewportBuilder},
@@ -6,11 +9,11 @@ use eframe::{
 };
 use egui_tiles::{Container, SimplificationOptions, Tile, TileId, Tiles, Tree, UiResponse};
 use log::{debug, info, warn};
-use serde::{Deserialize, Serialize};
 use settings::{Settings, SettingsEditor};
 
-use crate::panes::{self, PaneContext, TEPane};
+use crate::panes::{PaneContext, TEPane, Welcome};
 
+mod persistence;
 pub mod settings;
 
 #[derive(Debug)]
@@ -24,61 +27,86 @@ pub enum Message {
     },
 }
 
-/// Core application state for Third Eye
-#[derive(Debug, Default, Serialize, Deserialize)]
-struct PersistentState {
-    settings: Settings,
-}
-
 /// Application layout and logic
 struct App {
-    state: PersistentState,
+    data_dir: PathBuf,
+    settings: Settings,
     layout: Tree<Box<dyn TEPane>>,
-    messages: Vec<Message>,
+    message_tx: Sender<Message>,
+    message_rx: Receiver<Message>,
     settings_editor: Option<SettingsEditor>,
 }
 
 impl App {
-    // key names for data stored in eframe's storage
-    const STATE_KEY: &str = "thirdeye_state";
-    const LAYOUT_KEY: &str = "thirdeye_layout";
+    const SETTINGS_FILE: &str = "settings.ron";
+    const LAYOUT_FILE: &str = "layout.ron";
 
     /// Initialize the application, loading persistent state and layout data
     /// from eframe storage if possible
-    fn init(cc: &eframe::CreationContext<'_>) -> Self {
+    fn init(data_dir: PathBuf, cc: &eframe::CreationContext<'_>) -> Self {
         egui_extras::install_image_loaders(&cc.egui_ctx);
 
         cc.egui_ctx.all_styles_mut(|style| {
             style.interaction.selectable_labels = false;
-            // style.debug.show_expand_width = true;
-            // style.debug.debug_on_hover = true;
         });
 
-        let state;
-        let layout;
+        let settings = match persistence::load_data(&data_dir.join(Self::SETTINGS_FILE)) {
+            Ok(maybe_settings) => maybe_settings.unwrap_or_default(),
+            Err(err) => {
+                warn!("error loading saved settings: {err:?}");
+                Settings::default()
+            }
+        };
 
-        if let Some(storage) = cc.storage {
-            state = eframe::get_value(storage, Self::STATE_KEY).unwrap_or_default();
-            layout = eframe::get_value(storage, Self::LAYOUT_KEY).unwrap_or_else(|| {
+        let layout = match persistence::load_data(&data_dir.join(Self::LAYOUT_FILE)) {
+            Ok(Some(layout)) => layout,
+            Ok(None) => Tree::new_tabs(
+                "root_tabs",
+                vec![Box::new(Welcome::default()) as Box<dyn TEPane>],
+            ),
+            Err(err) => {
+                warn!("error loading saved layout: {err:?}");
                 Tree::new_tabs(
-                    Self::LAYOUT_KEY,
-                    vec![Box::new(panes::Welcome::default()) as Box<dyn TEPane>],
+                    "root_tabs",
+                    vec![Box::new(Welcome::default()) as Box<dyn TEPane>],
                 )
-            });
-        } else {
-            state = PersistentState::default();
-            layout = Tree::new_tabs(
-                Self::LAYOUT_KEY,
-                vec![Box::new(panes::NoStorage::default())],
-            );
+            }
+        };
+
+        let (message_tx, message_rx) = std::sync::mpsc::channel();
+
+        let app = App {
+            data_dir,
+            settings,
+            layout,
+            message_tx,
+            message_rx,
+            settings_editor: None,
+        };
+        app.apply_settings(&cc.egui_ctx);
+        app
+    }
+
+    /// Save the persistent application state
+    fn save_data(&self) {
+        info!("saving persistent data...");
+
+        if let Err(err) =
+            persistence::save_data(&self.settings, &self.data_dir.join(Self::SETTINGS_FILE))
+        {
+            warn!("error saving settings: {err:?}");
         }
 
-        App {
-            state,
-            layout,
-            messages: Vec::new(),
-            settings_editor: None,
+        if let Err(err) =
+            persistence::save_data(&self.layout, &self.data_dir.join(Self::LAYOUT_FILE))
+        {
+            warn!("error saving layout: {err:?}");
         }
+    }
+
+    fn apply_settings(&self, ctx: &egui::Context) {
+        ctx.request_repaint();
+        ctx.set_theme(self.settings.theme);
     }
 
     fn handle_global_hotkeys(&mut self, ctx: &egui::Context) {
@@ -118,7 +146,7 @@ impl App {
 
     /// Handle any new messages
     fn handle_messages(&mut self, ctx: &egui::Context) {
-        for message in self.messages.drain(..) {
+        for message in self.message_rx.try_iter() {
             debug!("processing message: {message:#?}");
             match message {
                 Message::AddPane { parent, pane } => {
@@ -138,8 +166,8 @@ impl App {
                 Message::CloseSettingsModal { new_settings } => {
                     self.settings_editor = None;
                     if let Some(new_settings) = new_settings {
-                        self.state.settings = new_settings;
-                        ctx.set_theme(self.state.settings.theme);
+                        self.settings = new_settings;
+                        self.apply_settings(ctx);
                     }
                 }
             }
@@ -148,29 +176,24 @@ impl App {
 }
 
 struct AppBehavior<'a> {
-    persistent: &'a mut PersistentState,
-    messages: &'a mut Vec<Message>,
+    settings: &'a mut Settings,
+    message_tx: &'a Sender<Message>,
 }
 
 impl eframe::App for App {
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, Self::STATE_KEY, &self.state);
-        eframe::set_value(storage, Self::LAYOUT_KEY, &self.layout);
-    }
-
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_global_hotkeys(ctx);
         self.avoid_empty_layout();
 
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             if ui.button("Settings").clicked() {
-                self.settings_editor = Some(self.state.settings.clone().into());
+                self.settings_editor = Some(self.settings.clone().into());
             }
         });
 
         let mut behavior = AppBehavior {
-            persistent: &mut self.state,
-            messages: &mut self.messages,
+            settings: &mut self.settings,
+            message_tx: &self.message_tx,
         };
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -180,10 +203,16 @@ impl eframe::App for App {
         if let Some(settings_editor) = &mut self.settings_editor {
             let modal = Modal::new("settings".into());
             let response = modal.show(ctx, |ui| settings_editor.ui(ui));
-            self.messages.extend(response.inner);
+            if let Some(msg) = response.inner {
+                self.message_tx.send(msg).unwrap();
+            }
         }
 
         self.handle_messages(ctx);
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.save_data();
     }
 }
 
@@ -191,13 +220,12 @@ impl eframe::App for App {
 pub fn start(data_dir: PathBuf) -> eframe::Result {
     let options = NativeOptions {
         viewport: ViewportBuilder::default().with_app_id(env!("CARGO_BIN_NAME")),
-        persistence_path: Some(data_dir.join("state.ron")),
         ..Default::default()
     };
     eframe::run_native(
         "Third Eye",
         options,
-        Box::new(|cc| Ok(Box::new(App::init(cc)))),
+        Box::new(|cc| Ok(Box::new(App::init(data_dir, cc)))),
     )
 }
 
@@ -220,7 +248,8 @@ impl<'a> egui_tiles::Behavior<Box<dyn TEPane>> for AppBehavior<'a> {
 
     fn pane_ui(&mut self, ui: &mut Ui, _tile_id: TileId, pane: &mut Box<dyn TEPane>) -> UiResponse {
         let context = PaneContext {
-            settings: &mut self.persistent.settings,
+            settings: &mut self.settings,
+            message_tx: &self.message_tx,
         };
         egui::Frame::new()
             .inner_margin(3)
@@ -239,10 +268,12 @@ impl<'a> egui_tiles::Behavior<Box<dyn TEPane>> for AppBehavior<'a> {
     ) {
         ui.menu_button("+", |ui| {
             if let Some(pane) = crate::panes::new_pane_menu_ui(ui) {
-                self.messages.push(Message::AddPane {
-                    parent: tile_id,
-                    pane,
-                });
+                self.message_tx
+                    .send(Message::AddPane {
+                        parent: tile_id,
+                        pane,
+                    })
+                    .unwrap();
             }
         });
     }
